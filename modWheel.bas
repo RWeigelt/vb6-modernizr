@@ -15,6 +15,7 @@ Option Explicit
 '    Shift+F12 find all references.
 ' =====================================================================
 
+Private Const VK_OEM_MINUS As Long = &HBD
 Private Const VK_TAB As Long = &H9
 Private Const VK_SHIFT As Long = &H10
 Private Const VK_CONTROL As Long = &H11
@@ -60,14 +61,14 @@ Private Function WheelGetMsgProc(ByVal nCode As Long, ByVal wParam As Long, _
 
         Select Case m.message
         Case WM_MOUSEWHEEL
-            Dim H As Long
-            H = WindowFromPoint(m.pt.x, m.pt.y)
-            If StrComp(WndClass(H), CLS_CODEPANE, vbTextCompare) = 0 Then
-                ScrollPane H, HiWordSigned(m.wParam), (m.wParam And 4) <> 0 ' MK_SHIFT
+            Dim h As Long
+            h = WindowFromPoint(m.pt.x, m.pt.y)
+            If StrComp(WndClass(h), CLS_CODEPANE, vbTextCompare) = 0 Then
+                ScrollPane h, HiWordSigned(m.wParam), (m.wParam And 4) <> 0 ' MK_SHIFT
                 swallow = True
-            ElseIf Scroll_IsHost(H) Then
+            ElseIf Scroll_IsHost(h) Then
                 ' wheel over a custom list scrolls it even unfocused
-                Scroll_Wheel H, HiWordSigned(m.wParam)
+                Scroll_Wheel h, HiWordSigned(m.wParam)
                 swallow = True
             End If
         Case WM_MOUSEMOVE
@@ -101,18 +102,23 @@ End Function
 
 Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
     On Error Resume Next
-    Dim ctrl As Boolean, shift As Boolean
+    Dim ctrl As Boolean, Shift As Boolean
     ctrl = (GetKeyState(VK_CONTROL) < 0)
-    shift = (GetKeyState(VK_SHIFT) < 0)
+    Shift = (GetKeyState(VK_SHIFT) < 0)
 
     Select Case m.wParam
 
     Case VK_TAB
         If gSwitcherActive Then
-            frmSwitcher.StepSwitch Not shift
+            frmSwitcher.StepSwitch Not Shift
             HandleKeyDown = True
         ElseIf ctrl And FocusInCodePane() Then
-            HandleKeyDown = frmSwitcher.BeginSwitch(Not shift)
+            HandleKeyDown = frmSwitcher.BeginSwitch(Not Shift)
+        End If
+        
+    Case VK_OEM_MINUS
+        If ctrl Then
+            Nav_Back
         End If
 
     Case VK_ESCAPE
@@ -128,7 +134,14 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
         End If
 
     Case VK_F
-        If ctrl Then
+        If ctrl And Shift Then
+            If FormShowing("frmFindFiles") Then
+                frmFindFiles.Hide
+            Else
+                frmFindFiles.ShowDialog
+            End If
+            HandleKeyDown = True
+        ElseIf ctrl Then
             ' claim Ctrl+F from the code pane AND from the bar itself,
             ' or the IDE's accelerator opens its native Find dialog
             If FocusInCodePane() Or FocusInFindBar() Then
@@ -146,13 +159,13 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
             Edit_HighlightWord            ' Ctrl+F3 = highlight word
             HandleKeyDown = True
         ElseIf gFindBarVisible Then
-            frmFind.DoFindPublic Not shift
+            frmFind.DoFindPublic Not Shift
             HandleKeyDown = True
         End If
 
     Case VK_F12
         If FocusInCodePane() Then
-            If shift Then
+            If Shift Then
                 Edit_FindAllReferences
             Else
                 Edit_GoToDefinition
@@ -161,7 +174,7 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
         End If
 
     Case VK_F2
-        If FocusInCodePane() And Not shift Then   ' Shift+F2 stays native
+        If FocusInCodePane() And Not Shift Then   ' Shift+F2 stays native
             If ctrl Then
                 BM_Toggle
             Else
@@ -171,7 +184,7 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
         End If
 
     Case VK_O
-        If ctrl And shift And FocusInCodePane() Then
+        If ctrl And Shift And FocusInCodePane() Then
             frmBrowser.ShowBrowser
             HandleKeyDown = True
         End If
@@ -180,7 +193,7 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
         ' claim Ctrl+P from the IDE (normally Print) for Quick Open.
         ' Unlike the other shortcuts this works anywhere in the IDE
         ' (Project Explorer included), but never in a running program.
-        If ctrl And Not shift And FocusInIDE() Then
+        If ctrl And Not Shift And FocusInIDE() Then
             If QuickOpenVisible() Then
                 frmQuickOpen.Hide
             Else
@@ -190,38 +203,38 @@ Private Function HandleKeyDown(m As MSGSTRUCT) As Boolean
         End If
 
     Case VK_G
-        If ctrl And shift And FocusInCodePane() Then
+        If ctrl And Shift And FocusInCodePane() Then
             frmChanges.ShowChanges
             HandleKeyDown = True
         End If
 
     Case VK_B
-        If ctrl And shift And FocusInCodePane() Then
+        If ctrl And Shift And FocusInCodePane() Then
             Git_BlameCurrentLine
             HandleKeyDown = True
         End If
 
     Case VK_L
-        If ctrl And shift And FocusInCodePane() Then
+        If ctrl And Shift And FocusInCodePane() Then
             frmGitLog.ShowLog
             HandleKeyDown = True
         End If
 
     Case VK_D
-        If ctrl And Not shift And FocusInCodePane() Then
+        If ctrl And Not Shift And FocusInCodePane() Then
             Edit_DuplicateLines
             HandleKeyDown = True
         End If
 
     Case VK_K
-        If ctrl And shift And FocusInCodePane() Then
+        If ctrl And Shift And FocusInCodePane() Then
             Edit_DeleteLines
             HandleKeyDown = True
         End If
 
     Case VK_OEM_2
         If ctrl And FocusInCodePane() Then
-            If shift Then
+            If Shift Then
                 frmShortcuts.ShowSheet     ' Ctrl+Shift+/ = cheat sheet
             Else
                 Edit_ToggleComment
@@ -264,13 +277,13 @@ End Function
 ' in the IDE are unowned, so they never satisfy this.
 Private Function FocusInIDE() As Boolean
     On Error Resume Next
-    Dim H As Long, hMain As Long
+    Dim h As Long, hMain As Long
     hMain = MainHwnd()
     If hMain = 0 Then Exit Function
-    H = GetFocus()
-    Do While H <> 0
-        If H = hMain Then FocusInIDE = True: Exit Function
-        H = GetParent(H)
+    h = GetFocus()
+    Do While h <> 0
+        If h = hMain Then FocusInIDE = True: Exit Function
+        h = GetParent(h)
     Loop
 End Function
 
@@ -282,12 +295,12 @@ End Function
 Private Function FocusInFindBar() As Boolean
     On Error Resume Next
     If Not gFindBarVisible Then Exit Function
-    Dim H As Long, hBar As Long
+    Dim h As Long, hBar As Long
     hBar = frmFind.hwnd
-    H = GetFocus()
-    Do While H <> 0
-        If H = hBar Then FocusInFindBar = True: Exit Function
-        H = GetParent(H)
+    h = GetFocus()
+    Do While h <> 0
+        If h = hBar Then FocusInFindBar = True: Exit Function
+        h = GetParent(h)
     Loop
 End Function
 
@@ -316,3 +329,16 @@ Private Sub ScrollPane(ByVal hwnd As Long, ByVal delta As Long, _
         SendMessageA hwnd, msg, cmd, hSB
     Next
 End Sub
+
+' Loaded AND visible - iterating Forms avoids the side effect of
+' auto-loading a predeclared form just to ask about it.
+Private Function FormShowing(ByVal nm As String) As Boolean
+    On Error Resume Next
+    Dim f As Object
+    For Each f In Forms
+        If StrComp(f.Name, nm, vbTextCompare) = 0 Then
+            FormShowing = f.Visible
+            Exit Function
+        End If
+    Next
+End Function

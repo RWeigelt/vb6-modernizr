@@ -138,7 +138,7 @@ Private Sub AddMenus()
     mMenuPopup.Caption = "M&odernizr"
 
     AddBtn "&Find / Replace Bar (Ctrl+F)", "findbar", False
-    AddBtn "Find in Fi&les...", "findfiles", False
+    AddBtn "Find in Fi&les... (Ctrl+Shift+F)", "findfiles", False
     AddBtn "Find All &References (Shift+F12)", "refs", False
     AddBtn "&Go to Definition (F12)", "def", False
     AddBtn "Highlight Word at Cursor (Ctrl+F3)", "hlword", False
