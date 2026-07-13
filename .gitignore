@@ -24,7 +24,7 @@ $RECYCLE.BIN/
 
 # Temporary & Cached Files
 *.tmp
-*.dca
+*.[Dd][Cc][Aa]
 *.log
 *.obj
 
